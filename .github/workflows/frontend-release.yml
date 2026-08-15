@@ -1,0 +1,96 @@
+name: Frontend Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-release.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and release Android APK
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create production env file
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          API_FALLBACK_URLS: ${{ vars.API_FALLBACK_URLS }}
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "API_BASE_URL repository variable is required."
+            exit 1
+          fi
+
+          mkdir -p env
+          cat > env/production.json <<EOF
+          {
+            "API_BASE_URL": "$API_BASE_URL",
+            "API_FALLBACK_URLS": "$API_FALLBACK_URLS"
+          }
+          EOF
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release --dart-define-from-file=env/production.json
+
+      - name: Prepare release asset
+        id: release
+        run: |
+          VERSION_TAG="frontend-build-$(date -u +'%Y%m%d-%H%M%S')"
+          APK_NAME="cardwise-${VERSION_TAG}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$APK_NAME"
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release.outputs.tag }}
+          path: frontend/${{ steps.release.outputs.apk }}
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: CardWise Android ${{ steps.release.outputs.tag }}
+          body: |
+            Automated Android APK prerelease for frontend changes.
+
+            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }}
+          files: frontend/${{ steps.release.outputs.apk }}
+          prerelease: true

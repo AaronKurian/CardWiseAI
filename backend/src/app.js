@@ -26,10 +26,24 @@ app.use(
   }),
 );
 
+const healthResponse = {
+  ok: true,
+  service: 'cardwise-backend',
+};
+
+app.get('/', (_req, res) => {
+  res.json(healthResponse);
+});
+
 app.get('/health', (_req, res) => {
+  res.json(healthResponse);
+});
+
+app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'cardwise-backend',
+    api: true,
   });
 });
 
