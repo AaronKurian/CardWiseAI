@@ -183,6 +183,16 @@ cd frontend
 flutter build apk --debug --dart-define-from-file=env/development.json
 ```
 
+## Automated APK Releases
+
+Every push to `main` that changes `frontend/**` runs the frontend release workflow. The workflow analyzes and tests the Flutter app, builds a release APK, uploads it as an Actions artifact, and creates a GitHub prerelease with the APK attached.
+
+Configure this GitHub repository variable before relying on automated releases:
+
+```text
+API_BASE_URL=https://your-render-service.onrender.com
+```
+
 ## Architecture
 
 CardWise keeps recommendation quality predictable by separating AI interaction from reward calculation.
